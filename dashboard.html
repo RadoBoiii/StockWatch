@@ -1,0 +1,536 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Stock Market Anomaly Dashboard</title>
+    <!-- React and ReactDOM -->
+    <script src="https://unpkg.com/react@17/umd/react.development.js"></script>
+    <script src="https://unpkg.com/react-dom@17/umd/react-dom.development.js"></script>
+    
+    <!-- Recharts -->
+    <script src="https://unpkg.com/recharts/umd/Recharts.js"></script>
+    
+    <!-- Babel for JSX -->
+    <script src="https://unpkg.com/babel-standalone@6/babel.min.js"></script>
+    
+    <style>
+        body { 
+            font-family: Arial, sans-serif; 
+            margin: 20px; 
+            background-color: #f9f9f9;
+        }
+        .card { 
+            border: 1px solid #ddd; 
+            border-radius: 8px; 
+            margin-bottom: 20px; 
+            box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+            background-color: white;
+        }
+        .card-header { 
+            padding: 15px 20px;
+            border-bottom: 1px solid #eee; 
+            background-color: #fafafa;
+            border-top-left-radius: 8px;
+            border-top-right-radius: 8px;
+        }
+        .card-title { 
+            font-size: 18px; 
+            font-weight: bold; 
+            margin: 0; 
+            color: #333;
+        }
+        .card-content { 
+            padding: 20px; 
+        }
+        .h-64 { 
+            height: 350px; 
+        }
+        .w-full { 
+            width: 100%; 
+        }
+        .max-w-6xl { 
+            max-width: 1200px; 
+        }
+        .mx-auto { 
+            margin-left: auto; 
+            margin-right: auto; 
+        }
+        .text-2xl { 
+            font-size: 1.5rem; 
+        }
+        .font-bold { 
+            font-weight: bold; 
+        }
+        .mb-4 { 
+            margin-bottom: 1rem; 
+        }
+        .text-center { 
+            text-align: center; 
+        }
+        .mt-4 { 
+            margin-top: 1rem; 
+        }
+        .p-4 { 
+            padding: 1rem; 
+        }
+        .bg-gray-100 { 
+            background-color: #f7f7f7; 
+        }
+        .rounded-md { 
+            border-radius: 0.375rem; 
+        }
+        .font-medium { 
+            font-weight: 500; 
+        }
+        .mb-2 { 
+            margin-bottom: 0.5rem; 
+        }
+        .grid { 
+            display: grid; 
+        }
+        .grid-cols-2 { 
+            grid-template-columns: repeat(2, minmax(0, 1fr)); 
+        }
+        .grid-cols-3 { 
+            grid-template-columns: repeat(3, minmax(0, 1fr)); 
+        }
+        .grid-cols-4 { 
+            grid-template-columns: repeat(4, minmax(0, 1fr)); 
+        }
+        .gap-4 { 
+            gap: 1rem; 
+        }
+        .mt-2 { 
+            margin-top: 0.5rem; 
+        }
+        .text-sm { 
+            font-size: 0.875rem; 
+        }
+        .text-2xl { 
+            font-size: 1.5rem; 
+        }
+        .text-xl { 
+            font-size: 1.25rem; 
+        }
+        
+        /* Tabs styling */
+        .tabs { 
+            display: flex; 
+            flex-direction: column; 
+            width: 100%; 
+        }
+        .tab-list { 
+            display: grid; 
+            grid-template-columns: repeat(4, 1fr); 
+            border-bottom: 1px solid #ddd;
+            background-color: white;
+            border-radius: 8px;
+            margin-bottom: 16px;
+            overflow: hidden;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+        }
+        .tab { 
+            padding: 12px; 
+            text-align: center; 
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+        .tab:hover {
+            background-color: #f5f5f5;
+        }
+        .tab.active { 
+            border-bottom: 2px solid #4a90e2; 
+            color: #4a90e2; 
+            font-weight: bold;
+            background-color: #f8f8f8;
+        }
+        .tab-content { 
+            display: none; 
+            padding-top: 1rem; 
+        }
+        .tab-content.active { 
+            display: block; 
+        }
+        
+        /* Stats styling */
+        .stat-card {
+            background-color: white;
+            border-radius: 8px;
+            padding: 12px;
+            text-align: center;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+        }
+        .stat-value {
+            font-size: 1.5rem;
+            font-weight: bold;
+            color: #4a90e2;
+        }
+        .anomaly-stat .stat-value {
+            color: #e24a4a;
+        }
+    </style>
+</head>
+<body>
+    <div id="root"></div>
+    
+    <script type="text/babel">
+        // Destructure Recharts components
+        const { 
+            LineChart, Line, XAxis, YAxis, CartesianGrid, 
+            Tooltip, Legend, ResponsiveContainer, ScatterChart, 
+            Scatter, ZAxis, ReferenceLine 
+        } = Recharts;
+
+        // Simple Tabs Component
+        const Tabs = ({ children, defaultValue, onValueChange }) => {
+            const [activeTab, setActiveTab] = React.useState(defaultValue);
+            
+            const handleTabChange = (tab) => {
+                setActiveTab(tab);
+                if (onValueChange) onValueChange(tab);
+            };
+            
+            // Get tab labels and content
+            const tabLabels = [];
+            const tabContents = {};
+            
+            React.Children.forEach(children, child => {
+                if (child.type === TabsList) {
+                    const labels = React.Children.map(child.props.children, trigger => ({
+                        value: trigger.props.value,
+                        label: trigger.props.children
+                    }));
+                    tabLabels.push(...labels);
+                } else if (child.type === TabsContent) {
+                    tabContents[child.props.value] = child.props.children;
+                }
+            });
+            
+            return (
+                <div className="tabs">
+                    <div className="tab-list">
+                        {tabLabels.map(tab => (
+                            <div 
+                                key={tab.value}
+                                className={`tab ${activeTab === tab.value ? 'active' : ''}`}
+                                onClick={() => handleTabChange(tab.value)}
+                            >
+                                {tab.label}
+                            </div>
+                        ))}
+                    </div>
+                    <div className="tab-content active">
+                        {tabContents[activeTab]}
+                    </div>
+                </div>
+            );
+        };
+        
+        const TabsList = ({ children }) => null; // Just for structure
+        const TabsTrigger = ({ value, children }) => null; // Just for structure
+        const TabsContent = ({ value, children }) => null; // Just for structure
+        
+        // Card Components
+        const Card = ({ children }) => <div className="card">{children}</div>;
+        const CardHeader = ({ children }) => <div className="card-header">{children}</div>;
+        const CardTitle = ({ children }) => <h2 className="card-title">{children}</h2>;
+        const CardContent = ({ children }) => <div className="card-content">{children}</div>;
+        
+        // Helper functions
+        function generateSampleStockData() {
+          const data = [];
+          let price = 3000;
+          const trendSlope = 1.2;
+          
+          for (let i = 0; i < 100; i++) {
+            // Add a slight upward trend
+            const trend = 3000 + (i * trendSlope);
+            
+            // Random walk with occasional spikes
+            price = price + (Math.random() - 0.48) * 30;
+            
+            // Add occasional anomalies
+            const isAnomaly = Math.random() > 0.95;
+            if (isAnomaly) {
+              price = price + (Math.random() > 0.5 ? 150 : -150);
+            }
+            
+            data.push({
+              date: `2024-${String(Math.floor(i/4) + 1).padStart(2, '0')}-${String((i % 4) * 7 + 1).padStart(2, '0')}`,
+              price: price,
+              trend: trend,
+              anomalyPrice: isAnomaly ? price : null
+            });
+          }
+          
+          return data;
+        }
+
+        function generateSampleReconstructionErrors() {
+          const data = [];
+          
+          for (let i = 0; i < 100; i++) {
+            // Base error with occasional spikes
+            const error = Math.random() * 0.04 + 0.01;
+            const isAnomaly = error > 0.05 || Math.random() > 0.95;
+            const spikeError = isAnomaly ? error * 1.5 : null;
+            
+            data.push({
+              date: `2024-${String(Math.floor(i/4) + 1).padStart(2, '0')}-${String((i % 4) * 7 + 1).padStart(2, '0')}`,
+              error: error,
+              anomalyError: spikeError
+            });
+          }
+          
+          return data;
+        }
+
+        function generateSampleLatentSpace() {
+          const data = [];
+          
+          // Generate normal cluster
+          for (let i = 0; i < 50; i++) {
+            data.push({
+              x: Math.random() * 2 - 1,
+              y: Math.random() * 2 - 1,
+              isAnomaly: false
+            });
+          }
+          
+          // Generate anomalies
+          for (let i = 0; i < 10; i++) {
+            data.push({
+              x: Math.random() * 6 - 3,
+              y: Math.random() * 6 - 3,
+              isAnomaly: true
+            });
+          }
+          
+          return data;
+        }
+
+        function generateSampleComparison() {
+          const data = [];
+          const windowSize = 30;
+          
+          // Generate a sine wave for original data
+          for (let i = 0; i < windowSize; i++) {
+            const original = Math.sin(i / 5) * 0.5 + 0.5;
+            
+            // Reconstructed is similar but with errors
+            const error = i > 20 ? Math.random() * 0.2 : Math.random() * 0.05;
+            const reconstructed = original + (Math.random() > 0.5 ? error : -error);
+            
+            data.push({
+              timeStep: i,
+              original: original,
+              reconstructed: reconstructed
+            });
+          }
+          
+          return data;
+        }
+        
+        // Main Dashboard Component
+        const StockAnomalyDashboard = () => {
+          // State to keep track of the selected tab
+          const [activeTab, setActiveTab] = React.useState("time-series");
+          
+          // State to store loaded data
+          const [loadedData, setLoadedData] = React.useState(null);
+          const [isLoading, setIsLoading] = React.useState(false);
+          
+          // Try to load results from Python script
+          React.useEffect(() => {
+            const tryLoadResults = async () => {
+              try {
+                setIsLoading(true);
+                const response = await fetch('anomaly_results.json');
+                if (response.ok) {
+                  const data = await response.json();
+                  console.log("Loaded data from Python analysis:", data);
+                  setLoadedData(data);
+                }
+              } catch (error) {
+                console.log("Could not load Python results, using sample data", error);
+              } finally {
+                setIsLoading(false);
+              }
+            };
+            
+            tryLoadResults();
+          }, []);
+
+          // Sample data - time series stock data with anomaly markers
+          const stockData = generateSampleStockData();
+          
+          // Sample reconstruction errors with threshold
+          const reconstructionErrors = generateSampleReconstructionErrors();
+          
+          // Sample latent space data (2D projection of encoded features)
+          const latentSpaceData = generateSampleLatentSpace();
+          
+          // Sample comparison data (original vs reconstructed for anomalies)
+          const comparisonData = generateSampleComparison();
+
+          return (
+            <div className="w-full max-w-6xl mx-auto">
+              <h1 className="text-2xl font-bold mb-4 text-center">Enhanced Stock Market Anomaly Detection</h1>
+              
+              {isLoading ? (
+                <div className="text-center p-4">Loading data from Python analysis...</div>
+              ) : (
+                <Tabs defaultValue="time-series" onValueChange={setActiveTab}>
+                  <TabsList>
+                    <TabsTrigger value="time-series">Time Series</TabsTrigger>
+                    <TabsTrigger value="reconstruction-errors">Reconstruction Errors</TabsTrigger>
+                    <TabsTrigger value="latent-space">Latent Space</TabsTrigger>
+                    <TabsTrigger value="comparisons">Anomaly Comparisons</TabsTrigger>
+                  </TabsList>
+                  
+                  <TabsContent value="time-series">
+                    <Card>
+                      <CardHeader>
+                        <CardTitle>Stock Price Time Series with Anomalies</CardTitle>
+                      </CardHeader>
+                      <CardContent>
+                        <div className="h-64">
+                          <ResponsiveContainer width="100%" height="100%">
+                            <LineChart data={stockData} margin={{ top: 5, right: 20, left: 20, bottom: 5 }}>
+                              <CartesianGrid strokeDasharray="3 3" />
+                              <XAxis dataKey="date" />
+                              <YAxis />
+                              <Tooltip />
+                              <Legend />
+                              <Line type="monotone" dataKey="price" stroke="#8884d8" dot={false} name="Stock Price" />
+                              <Line type="monotone" dataKey="trend" stroke="#ff7300" strokeDasharray="5 5" dot={false} name="Trend" />
+                              <Scatter name="Anomalies" dataKey="anomalyPrice" fill="red" shape="circle" />
+                            </LineChart>
+                          </ResponsiveContainer>
+                        </div>
+                        <div className="mt-4 p-4 bg-gray-100 rounded-md">
+                          <h3 className="font-medium mb-2">Time Series Analysis</h3>
+                          <p>This visualization shows the stock price over time with detected anomalies highlighted in red. The dashed orange line shows the overall trend.</p>
+                          <div className="grid grid-cols-2 gap-4 mt-2">
+                            <div className="stat-card">
+                              <p className="text-sm font-medium">Total Anomalies:</p>
+                              <p className="stat-value anomaly-stat">{stockData.filter(d => d.anomalyPrice).length}</p>
+                            </div>
+                            <div className="stat-card">
+                              <p className="text-sm font-medium">Anomaly Rate:</p>
+                              <p className="stat-value anomaly-stat">{((stockData.filter(d => d.anomalyPrice).length / stockData.length) * 100).toFixed(1)}%</p>
+                            </div>
+                          </div>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  </TabsContent>
+                  
+                  <TabsContent value="reconstruction-errors">
+                    <Card>
+                      <CardHeader>
+                        <CardTitle>Reconstruction Errors Analysis</CardTitle>
+                      </CardHeader>
+                      <CardContent>
+                        <div className="h-64">
+                          <ResponsiveContainer width="100%" height="100%">
+                            <LineChart data={reconstructionErrors} margin={{ top: 5, right: 20, left: 20, bottom: 5 }}>
+                              <CartesianGrid strokeDasharray="3 3" />
+                              <XAxis dataKey="date" />
+                              <YAxis />
+                              <Tooltip />
+                              <Legend />
+                              <Line type="monotone" dataKey="error" stroke="#82ca9d" name="Reconstruction Error" />
+                              <ReferenceLine y={0.05} stroke="red" strokeDasharray="3 3" label="Threshold" />
+                              <Scatter name="Anomalies" dataKey="anomalyError" fill="red" shape="circle" />
+                            </LineChart>
+                          </ResponsiveContainer>
+                        </div>
+                        <div className="mt-4 p-4 bg-gray-100 rounded-md">
+                          <h3 className="font-medium mb-2">Threshold Analysis</h3>
+                          <p>This chart shows the reconstruction errors from the autoencoder model. Points above the threshold (red line) are classified as anomalies, indicating unusual market behavior.</p>
+                          <div className="grid grid-cols-3 gap-4 mt-2 text-center">
+                            <div className="stat-card">
+                              <p className="text-sm font-medium">Mean Error:</p>
+                              <p className="stat-value">0.032</p>
+                            </div>
+                            <div className="stat-card">
+                              <p className="text-sm font-medium">Threshold:</p>
+                              <p className="stat-value">0.050</p>
+                            </div>
+                            <div className="stat-card">
+                              <p className="text-sm font-medium">Max Error:</p>
+                              <p className="stat-value">0.089</p>
+                            </div>
+                          </div>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  </TabsContent>
+                  
+                  <TabsContent value="latent-space">
+                    <Card>
+                      <CardHeader>
+                        <CardTitle>Latent Space Visualization</CardTitle>
+                      </CardHeader>
+                      <CardContent>
+                        <div className="h-64">
+                          <ResponsiveContainer width="100%" height="100%">
+                            <ScatterChart margin={{ top: 5, right: 20, left: 20, bottom: 5 }}>
+                              <CartesianGrid strokeDasharray="3 3" />
+                              <XAxis type="number" dataKey="x" name="Component 1" />
+                              <YAxis type="number" dataKey="y" name="Component 2" />
+                              <ZAxis type="number" range={[50, 500]} />
+                              <Tooltip cursor={{ strokeDasharray: '3 3' }} />
+                              <Legend />
+                              <Scatter name="Normal Data" data={latentSpaceData.filter(d => !d.isAnomaly)} fill="#8884d8" />
+                              <Scatter name="Anomalies" data={latentSpaceData.filter(d => d.isAnomaly)} fill="#ff0000" />
+                            </ScatterChart>
+                          </ResponsiveContainer>
+                        </div>
+                        <div className="mt-4 p-4 bg-gray-100 rounded-md">
+                          <h3 className="font-medium mb-2">Latent Space Analysis</h3>
+                          <p>This visualization shows the 2D projection of the autoencoder's latent space. Normal data points cluster together, while anomalies (in red) tend to be isolated or form separate clusters.</p>
+                          <p className="mt-2 text-sm italic">The distance between points represents their similarity in the encoded representation.</p>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  </TabsContent>
+                  
+                  <TabsContent value="comparisons">
+                    <Card>
+                      <CardHeader>
+                        <CardTitle>Original vs. Reconstructed Comparison</CardTitle>
+                      </CardHeader>
+                      <CardContent>
+                        <div className="h-64">
+                          <ResponsiveContainer width="100%" height="100%">
+                            <LineChart data={comparisonData} margin={{ top: 5, right: 20, left: 20, bottom: 5 }}>
+                              <CartesianGrid strokeDasharray="3 3" />
+                              <XAxis dataKey="timeStep" />
+                              <YAxis />
+                              <Tooltip />
+                              <Legend />
+                              <Line type="monotone" dataKey="original" stroke="#8884d8" name="Original" strokeWidth={2} />
+                              <Line type="monotone" dataKey="reconstructed" stroke="#82ca9d" name="Reconstructed" strokeWidth={2} />
+                            </LineChart>
+                          </ResponsiveContainer>
+                        </div>
+                        <div className="mt-4 p-4 bg-gray-100 rounded-md">
+                          <h3 className="font-medium mb-2">Reconstruction Analysis</h3>
+                          <p>This visualization compares the original window of data (purple) with the autoencoder's reconstruction (green). The difference between these lines represents the reconstruction error.</p>
+                          <p className="mt-2 text-sm">Large gaps between the original and reconstructed signals indicate unusual patterns that the model couldn't properly learn, suggesting anomalous behavior.</p>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  </TabsContent>
+                </Tabs>
+              )}
+            </div>
+          );
+        };
+        
+        // Render the dashboard
+        ReactDOM.render(<StockAnomalyDashboard />, document.getElementById('root'));
+    </script>
+</body>
+</html>
